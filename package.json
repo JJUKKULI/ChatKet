@@ -1,0 +1,22 @@
+{
+  "name": "chatket",
+  "version": "1.0.0",
+  "description": "TCP Socket Chat Application - Network Computing",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "client": "node client/cli-client.js",
+    "dev": "nodemon server/server.js"
+  },
+  "keywords": [
+    "socket",
+    "chat",
+    "tcp",
+    "nodejs"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
