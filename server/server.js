@@ -5,6 +5,7 @@ const net = require("net");
 const handleSocket = require("./socketHandler");
 const logger = require("./utils/logger");
 const { SERVER } = require("../shared/constants");
+const messageFormatter = require("./utils/messageFormatter");
 
 // TCP 서버 생성
 // net.createServer에 콜백을 넘기면 새 소켓마다 자동 호출됨
@@ -17,8 +18,7 @@ server.maxConnections = SERVER.MAX_CLIENTS;
 
 // 서버 시작
 server.listen(SERVER.PORT, SERVER.HOST, () => {
-  logger.success(`Chatket 서버 시작 — ${SERVER.HOST}:${SERVER.PORT}`);
-  logger.info(`최대 접속자: ${SERVER.MAX_CLIENTS}명`);
+  console.log(messageFormatter.banner(SERVER.HOST, SERVER.PORT, SERVER.MAX_CLIENTS));
   logger.info("접속 대기 중...\n");
 });
 
