@@ -2,42 +2,49 @@
 "use strict";
 
 const net = require("net");
+const http = require("http");
+const { createWsServer } = require("./wsHandler");
 const handleSocket = require("./socketHandler");
 const logger = require("./utils/logger");
-const { SERVER } = require("../shared/constants");
 const messageFormatter = require("./utils/messageFormatter");
+const { SERVER } = require("../shared/constants");
 
-// TCP 서버 생성
-// net.createServer에 콜백을 넘기면 새 소켓마다 자동 호출됨
-const server = net.createServer((socket) => {
+// ── TCP 서버 (CLI용) ─────────────────────────────
+const tcpServer = net.createServer((socket) => {
   handleSocket(socket);
 });
-
-// 최대 접속자 제한
-server.maxConnections = SERVER.MAX_CLIENTS;
-
-// 서버 시작
-server.listen(SERVER.PORT, SERVER.HOST, () => {
+tcpServer.maxConnections = SERVER.MAX_CLIENTS;
+tcpServer.listen(SERVER.PORT, SERVER.HOST, () => {
   console.log(messageFormatter.banner(SERVER.HOST, SERVER.PORT, SERVER.MAX_CLIENTS));
+  logger.info(`TCP       → ${SERVER.HOST}:${SERVER.PORT}`);
+});
+
+// ── WebSocket 서버 (React용) ──────────────────────
+const httpServer = http.createServer();
+createWsServer(httpServer);
+httpServer.listen(SERVER.WS_PORT, SERVER.HOST, () => {
+  logger.info(`WebSocket → ${SERVER.HOST}:${SERVER.WS_PORT}`);
   logger.info("접속 대기 중...\n");
 });
 
-// 서버 레벨 에러 (포트 충돌 등)
-server.on("error", (err) => {
-  if (err.code === "EADDRINUSE") {
-    logger.error(`포트 ${SERVER.PORT} 가 이미 사용 중입니다.`);
-    logger.info("다른 터미널에서 실행 중인 서버가 있는지 확인하세요.");
-  } else {
-    logger.error(`서버 에러: ${err.message}`);
-  }
+// ── 에러 처리 ─────────────────────────────────────
+tcpServer.on("error", (err) => {
+  if (err.code === "EADDRINUSE") logger.error(`TCP 포트 ${SERVER.PORT} 사용 중`);
+  else logger.error(`TCP 에러: ${err.message}`);
+  process.exit(1);
+});
+httpServer.on("error", (err) => {
+  if (err.code === "EADDRINUSE") logger.error(`WS 포트 ${SERVER.WS_PORT} 사용 중`);
+  else logger.error(`WS 에러: ${err.message}`);
   process.exit(1);
 });
 
-// Ctrl+C 종료 처리 (graceful shutdown)
+// ── Graceful Shutdown ─────────────────────────────
 process.on("SIGINT", () => {
   logger.warn("\n서버를 종료합니다...");
-  server.close(() => {
-    logger.info("모든 연결이 종료되었습니다.");
+  tcpServer.close();
+  httpServer.close(() => {
+    logger.info("종료 완료");
     process.exit(0);
   });
 });

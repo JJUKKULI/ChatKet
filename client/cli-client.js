@@ -6,20 +6,17 @@ const readline = require("readline");
 const Protocol = require("../shared/protocol");
 const { SERVER, MSG_TYPE } = require("../shared/constants");
 
-// 터미널 입력 처리
-const rl = readline.createInterface({
-  input: process.stdin,
-  output: process.stdout,
-});
+const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 
-// 서버 연결
+// ← 이 플래그가 핵심 — 이미 종료 중이면 중복 처리 방지
+let isQuitting = false;
+
 const socket = net.connect({ host: SERVER.HOST, port: SERVER.PORT }, () => {
   console.log("✅ 서버에 연결되었습니다.\n");
   rl.prompt();
 });
 
-// ── 서버 → 클라이언트 메시지 수신 ─────────────────
-let buffer = ""; // 서버와 동일하게 버퍼링 처리
+let buffer = "";
 
 socket.on("data", (chunk) => {
   buffer += chunk.toString();
@@ -33,7 +30,6 @@ socket.on("data", (chunk) => {
     const msg = Protocol.decode(trimmed);
     if (!msg) continue;
 
-    // 메시지 타입별 출력 형식
     switch (msg.type) {
       case MSG_TYPE.CHAT:
         console.log(`\n💬 ${msg.from}: ${msg.body}`);
@@ -51,32 +47,50 @@ socket.on("data", (chunk) => {
         console.log(`\nℹ️  ${msg.body}`);
         break;
     }
-    rl.prompt(); // 입력 프롬프트 다시 표시
+    rl.prompt();
   }
 });
 
-// ── 사용자 입력 → 서버 전송 ──────────────────────
+socket.on("line", (input) => {
+  const trimmed = input.trim();
+  if (!trimmed) {
+    rl.prompt();
+    return;
+  }
+  socket.write(trimmed + "\n");
+  rl.prompt();
+});
+
 rl.on("line", (input) => {
   const trimmed = input.trim();
   if (!trimmed) {
     rl.prompt();
     return;
   }
-  // 그냥 문자열을 그대로 보냄 — 서버에서 파싱
   socket.write(trimmed + "\n");
   rl.prompt();
 });
 
-// ── 종료 처리 ────────────────────────────────────
+// 서버가 정상 종료 신호를 보낸 경우 (내가 /quit 입력 → 서버가 socket.end())
 socket.on("end", () => {
+  if (isQuitting) return; // 이미 처리 중이면 무시
+  isQuitting = true;
   console.log("\n서버 연결이 종료되었습니다.");
+  rl.close();
   process.exit(0);
 });
+
 socket.on("error", (err) => {
   console.error(`\n연결 오류: ${err.message}`);
   process.exit(1);
 });
+
+// Ctrl+C 또는 /quit 입력 시
 rl.on("close", () => {
-  socket.write("/quit\n");
-  socket.end();
+  if (isQuitting) return; // 이미 처리 중이면 중복 전송 방지
+  isQuitting = true;
+  if (!socket.destroyed) {
+    socket.write("/quit\n");
+    socket.end();
+  }
 });

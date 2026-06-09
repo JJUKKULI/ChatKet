@@ -8,7 +8,8 @@ const CONSTANTS = {
   // 서버 설정
   SERVER: {
     HOST: "localhost",
-    PORT: 3000,
+    PORT: 3000, // TCP (CLI용)
+    WS_PORT: 3002, // WebSocket ← 3001에서 3002로 변경
     MAX_CLIENTS: 50,
   },
 
